@@ -1,9 +1,9 @@
-import React, { useMemo } from "react";
-import { useTable, useFilters, usePagination } from "react-table";
-import ReactPaginate from "react-paginate";
+import React, { useMemo, useState } from "react";
+import { useTable, useFilters, usePagination, useSortBy } from "react-table";
 import { Helmet } from "react-helmet";
+import { format, parseISO, getMonth, getYear, getWeek } from "date-fns";
 import dataFile from "../../data/FMSCA_records.json";
-
+import { Modal, Button } from "react-bootstrap";
 
 function DefaultColumnFilter({
   column: { filterValue, preFilteredRows, setFilter },
@@ -23,7 +23,33 @@ function DefaultColumnFilter({
 }
 
 export default function Home() {
-  const data = useMemo(() => dataFile.FMSCA_records, []);
+  const [dateGroup, setDateGroup] = useState('none'); // State for grouping dates
+  const [modalShow, setModalShow] = useState({}); // State for showing modals
+
+  // Helper function to format and group dates
+  const formatDate = (date, group) => {
+    const parsedDate = parseISO(date);
+    const formattedDate = format(parsedDate, 'yyyy-MM-dd HH:mm:ss');
+    
+    switch (group) {
+      case 'month':
+        return format(parsedDate, 'MMMM yyyy');
+      case 'week':
+        return `Week ${getWeek(parsedDate)}, ${getYear(parsedDate)}`;
+      case 'year':
+        return format(parsedDate, 'yyyy');
+      default:
+        return formattedDate;
+    }
+  };
+
+  const data = useMemo(() => {
+    return dataFile.FMSCA_records.map(record => ({
+      ...record,
+      created_dt: formatDate(record.created_dt, dateGroup),
+      data_source_modified_dt: formatDate(record.data_source_modified_dt, dateGroup),
+    }));
+  }, [dateGroup]);
 
   const columns = useMemo(() => [
     { Header: 'Created Date', accessor: 'created_dt', Filter: DefaultColumnFilter, filter: 'text' },
@@ -65,22 +91,73 @@ export default function Home() {
       initialState: { pageIndex: 0, pageSize: 10 }
     },
     useFilters,
+    useSortBy,
     usePagination
   );
+
+  const handleShow = (columnId) => {
+    setModalShow(prev => ({ ...prev, [columnId]: true }));
+  };
+
+  const handleClose = (columnId) => {
+    setModalShow(prev => ({ ...prev, [columnId]: false }));
+  };
 
   return (
     <>
       <Helmet>
         <title>Home</title>
       </Helmet>
-      <table {...getTableProps()} className="table table-striped table-bordered">
-        <thead className="thead-dark">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <label className="mr-4">Group Dates By : </label>
+          <select
+            value={dateGroup}
+            onChange={e => setDateGroup(e.target.value)}
+            className="form-control w-auto d-inline"
+          >
+            <option value="none">None</option>
+            <option value="month">Month</option>
+            <option value="week">Week</option>
+            <option value="year">Year</option>
+          </select>
+        </div>
+      </div>
+      <table {...getTableProps()} className="table">
+        <thead className="thead-dark text-center">
           {headerGroups.map(headerGroup => (
             <tr {...headerGroup.getHeaderGroupProps()}>
               {headerGroup.headers.map(column => (
-                <th {...column.getHeaderProps()}>
+                <th {...column.getHeaderProps(column.getSortByToggleProps())}>
                   {column.render('Header')}
-                  <div>{column.canFilter ? column.render('Filter') : null}</div>
+                  <div>
+                    <Button
+                      variant="link"
+                      onClick={() => handleShow(column.id)}
+                    >
+                      Filter
+                    </Button>
+                  </div>
+                  <span>
+                    {column.isSorted
+                      ? column.isSortedDesc
+                        ? ' 🔽'
+                        : ' 🔼'
+                      : ''}
+                  </span>
+                  <Modal show={modalShow[column.id]} onHide={() => handleClose(column.id)}>
+                    <Modal.Header closeButton>
+                      <Modal.Title>Filter {column.render('Header')}</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                      {column.canFilter ? column.render('Filter') : null}
+                    </Modal.Body>
+                    <Modal.Footer>
+                      <Button variant="secondary" onClick={() => handleClose(column.id)}>
+                        Close
+                      </Button>
+                    </Modal.Footer>
+                  </Modal>
                 </th>
               ))}
             </tr>
@@ -100,37 +177,37 @@ export default function Home() {
         </tbody>
       </table>
       <div className="d-flex justify-content-center align-items-center my-5">
-      <div className="pagination ">
-        <button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="btn btn-primary mx-1">
-          {'<<'}
-        </button>
-        <button onClick={() => previousPage()} disabled={!canPreviousPage} className="btn btn-primary mx-1">
-          {'<'}
-        </button>
-        <button onClick={() => nextPage()} disabled={!canNextPage} className="btn btn-primary mx-1">
-          {'>'}
-        </button>
-        <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage} className="btn btn-primary mx-1">
-          {'>>'}
-        </button>
-        <span className="mx-2">
-          Page{' '}
-          <strong>
-            {pageIndex + 1} of {pageOptions.length}
-          </strong>{' '}
-        </span>
-        <select
-          value={pageSize}
-          onChange={e => setPageSize(Number(e.target.value))}
-          className="form-control w-auto d-inline"
-        >
-          {[10, 20, 30, 40, 50].map(pageSize => (
-            <option key={pageSize} value={pageSize}>
-              Show {pageSize}
-            </option>
-          ))}
-        </select>
-      </div>
+        <div className="pagination">
+          <button onClick={() => gotoPage(0)} disabled={!canPreviousPage} className="btn btn-primary mx-1">
+            {'<<'}
+          </button>
+          <button onClick={() => previousPage()} disabled={!canPreviousPage} className="btn btn-primary mx-1">
+            {'<'}
+          </button>
+          <button onClick={() => nextPage()} disabled={!canNextPage} className="btn btn-primary mx-1">
+            {'>'}
+          </button>
+          <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage} className="btn btn-primary mx-1">
+            {'>>'}
+          </button>
+          <span className="mx-2">
+            Page{' '}
+            <strong>
+              {pageIndex + 1} of {pageOptions.length}
+            </strong>{' '}
+          </span>
+          <select
+            value={pageSize}
+            onChange={e => setPageSize(Number(e.target.value))}
+            className="form-control w-auto d-inline"
+          >
+            {[10, 20, 30, 40, 50].map(pageSize => (
+              <option key={pageSize} value={pageSize}>
+                Show {pageSize}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </>
   );
