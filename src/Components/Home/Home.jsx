@@ -83,13 +83,19 @@ export default function Home() {
       {
         accessorKey: 'created_dt',
         header: 'Created Date',
-        Cell: ({ cell }) => format(parseISO(cell.getValue()), 'yyyy-MM-dd HH:mm:ss'),
+        Cell: ({ cell }) => {
+          const date = parseISO(cell.getValue());
+          return format(date, 'yyyy-MM-dd HH:mm:ss');
+        },
         filterFn: 'dateBetween',
       },
       {
         accessorKey: 'data_source_modified_dt',
         header: 'Last Modified Date',
-        Cell: ({ cell }) => format(parseISO(cell.getValue()), 'yyyy-MM-dd HH:mm:ss'),
+        Cell: ({ cell }) => {
+          const date = parseISO(cell.getValue());
+          return format(date, 'yyyy-MM-dd HH:mm:ss');
+        },
         filterFn: 'dateBetween',
       },
       {
@@ -115,10 +121,12 @@ export default function Home() {
       return acc;
     }, {});
   
-    const chartData = Object.entries(outOfServiceByMonth).map(([monthYear, count]) => ({
-      monthYear,
-      count,
-    }));
+    const chartData = Object.entries(outOfServiceByMonth)
+      .map(([monthYear, count]) => ({
+        monthYear,
+        count,
+      }))
+      .sort((a, b) => a.monthYear.localeCompare(b.monthYear));
   
     setChartData(chartData);
   };
@@ -230,8 +238,9 @@ function TableView({ data, setData, columns, setColumns, chartData, updateChartD
                   if (typeof filterValue === 'undefined' || filterValue === null) return true;
                   
                   if (filter.id.includes('date')) {
-                    const date = new Date(cellValue);
-                    return date >= new Date(filterValue[0]) && date <= new Date(filterValue[1]);
+                    const date = parseISO(cellValue);
+                    const [start, end] = filterValue.map(parseISO);
+                    return date >= start && date <= end;
                   }
                   
                   return cellValue.toString().toLowerCase().includes(filterValue.toLowerCase());
