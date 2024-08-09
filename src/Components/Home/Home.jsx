@@ -137,20 +137,12 @@ export default function Home() {
     updateChartData(updatedData);
   };
 
-  const handleResetSettings = () => {
-    const initialColumns = generateColumns();
-    setColumns(initialColumns);
-    localStorage.setItem('columns', JSON.stringify(initialColumns));
-    setTableData(dataFile.FMSCA_records);
-    localStorage.setItem('tableData', JSON.stringify(dataFile.FMSCA_records));
-    updateChartData(dataFile.FMSCA_records);
-  };
 
   const handleSaveView = () => {
     const currentView = {
       columns,
-      filters: {}, // Implement filters state if needed
-      sorting: {}, // Implement sorting state if needed
+      filters: {}, 
+      sorting: {}, 
     };
     return currentView;
   };
@@ -228,26 +220,7 @@ function TableView({ data, setData, columns, setColumns, chartData, updateChartD
               type: cell.column.id.includes('date') ? 'datetime-local' : 'text',
             })}
             onEditingRowSave={setData}
-            onColumnFiltersChange={(updatedFilters) => {
-              const filteredData = data.filter(row => {
-                return updatedFilters.every(filter => {
-                  if (!filter || !filter.id) return true;
-                  const cellValue = row[filter.id];
-                  const filterValue = filter.value;
-                  
-                  if (typeof filterValue === 'undefined' || filterValue === null) return true;
-                  
-                  if (filter.id.includes('date')) {
-                    const date = parseISO(cellValue);
-                    const [start, end] = filterValue.map(parseISO);
-                    return date >= start && date <= end;
-                  }
-                  
-                  return cellValue.toString().toLowerCase().includes(filterValue.toLowerCase());
-                });
-              });
-              updateChartData(filteredData);
-            }}
+
           />
         </Paper>
       </Grid>
